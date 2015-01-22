@@ -1,0 +1,5 @@
+name = Account fields
+description = Account fields configuration for each role
+package = User management
+core = 7.x
+version = 7.x-1.0

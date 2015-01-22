@@ -1,0 +1,6 @@
+name = Rol Login
+description = Custom management of user login and registration configured by rol
+package = User management
+core = 7.x
+configure = admin/config/people/rol-login
+version = 7.x-1.1

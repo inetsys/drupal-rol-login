@@ -1,0 +1,767 @@
+<?php
+
+/**
+ * Implementation of hook_permission()
+ */
+function rol_login_permission(){
+	$permission = array(
+		'view all user origin' => array(
+			'title' => t('View all user origin')
+		),
+		'edit own profile' => array(
+			'title' => t('Edit own profile')
+		),
+	);
+
+	foreach(user_roles(true) as $rid => $role_name){
+		$permission['view users of role '.$role_name] = array(
+			'title' => t('View users of role %name', array('%name' => $role_name)),
+		);
+		$permission['edit users of role '.$role_name] = array(
+			'title' => t('Edit users of role %name', array('%name' => $role_name)),
+		);
+		$permission['create users of role '.$role_name] = array(
+			'title' => t('Create users of role %name', array('%name' => $role_name))
+		);
+	}
+
+	return $permission;
+}
+
+/**
+ * Implements hook_theme
+ */
+function rol_login_theme(){
+	return array(
+		'password_recovery_info' => array(
+			'variables' => array(
+				'roles' => array()
+			),
+			'template' => 'password_recovery_info',
+			'path' => drupal_get_path('module', 'rol_login').'/templates'
+		)
+	);
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function rol_login_menu(){
+	$menu = array();
+
+	// Administration
+
+	$admin_url = variable_get('rol_login_admin_url', 'admin/config/people/rol-login');
+	$admin_url_parts = count(explode('/', trim($admin_url, '/'))) - 1;
+	$menu[$admin_url] = array(
+		'title' => 'User urls settings',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_settings'),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+	);
+	// Settings
+	$menu[$admin_url.'/settings'] = array(
+		'title' => 'Settings',
+		'type' => MENU_DEFAULT_LOCAL_TASK,
+		'weight' => 1,
+	);
+	// Role configuration
+	$menu[$admin_url.'/roles'] = array(
+		'title' => 'Role settings',
+		'access arguments' => array('administer users'),
+		'page callback' => 'rol_login_admin_roles_list',
+		'file' => 'rol_login.admin.inc',
+		'type' => MENU_LOCAL_TASK,
+		'weight' => 2,
+	);
+	$menu[$admin_url.'/roles/add'] = array(
+		'title' => 'Add role settings',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_admin_roles_add_form'),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+		'type' => MENU_LOCAL_ACTION,
+	);
+	$menu[$admin_url.'/roles/%rol_login'] = array(
+		'title' => 'Rol login',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_admin_roles_edit_form', $admin_url_parts + 2),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+	);
+	$menu[$admin_url.'/roles/%rol_login/edit'] = array(
+		'title' => 'Edit rol login',
+		'type' => MENU_DEFAULT_LOCAL_TASK,
+	);
+	$menu[$admin_url.'/roles/%rol_login/delete'] = array(
+		'title' => 'Delete rol login',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_admin_roles_delete_form', $admin_url_parts + 2),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+		'type' => MENU_LOCAL_TASK,
+	);
+	// User creation
+	$menu[$admin_url.'/user-creation'] = array(
+		'title' => 'User creation settings',
+		'access arguments' => array('administer users'),
+		'page callback' => 'rol_login_admin_creation_list',
+		'file' => 'rol_login.admin.inc',
+		'type' => MENU_LOCAL_TASK,
+		'weight' => 2,
+	);
+	$menu[$admin_url.'/user-creation/add'] = array(
+		'title' => 'Add creation settings',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_admin_creation_add_form'),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+		'type' => MENU_LOCAL_ACTION,
+	);
+	$menu[$admin_url.'/user-creation/%rol_creation'] = array(
+		'title' => 'User creation settings',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_admin_creation_edit_form', $admin_url_parts + 2),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+	);
+	$menu[$admin_url.'/user-creation/%rol_creation/edit'] = array(
+		'title' => 'Edit user creation settings',
+		'type' => MENU_DEFAULT_LOCAL_TASK,
+	);
+	$menu[$admin_url.'/user-creation/%rol_creation/delete'] = array(
+		'title' => 'Delete user creation settings',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('rol_login_admin_creation_delete_form', $admin_url_parts + 2),
+		'access arguments' => array('administer users'),
+		'file' => 'rol_login.admin.inc',
+		'type' => MENU_LOCAL_TASK,
+	);
+
+	// Si el sitio no está en mantenimiento...
+	if(variable_get('rol_login_close_default_urls', false) && !variable_get('maintenance_mode', 0)){
+
+		// Password recovery pages
+
+		$menu[variable_get('rol_login_password_path', 'password')] = array(
+			'title' => 'Request new password',
+			'page callback' => 'drupal_get_form',
+			'page arguments' => array('user_pass'),
+			'access callback' => TRUE,
+			'file' => 'user.pages.inc',
+			'file path' => drupal_get_path('module', 'user'),
+		);
+		$n = count(explode('/', variable_get('rol_login_password_path', 'password'))) - 1;
+		$menu[variable_get('rol_login_password_path', 'password').'/reset/%/%/%'] = array(
+			'title' => 'Reset password',
+			'page callback' => 'drupal_get_form',
+			'page arguments' => array('rol_login_pass_reset', $n + 2, $n + 3, $n + 4),
+			'access callback' => TRUE,
+			'file' => 'rol_login.pages.inc',
+			'type' => MENU_CALLBACK,
+		);
+		$menu['password-recovery-info'] = array(
+			'title' => 'Password recovery info',
+			'access callback' => true,
+			'page callback' => 'rol_login_password_recovery_info_page',
+			'file' => 'rol_login.pages.inc',
+			'type' => MENU_CALLBACK,
+		);
+
+		// Logout page
+
+		$menu[variable_get('rol_login_logout_path', 'logout')] = array(
+			'title' => 'Logout',
+			'access callback' => 'user_is_logged_in',
+			'page callback' => 'user_logout',
+			'file' => 'user.pages.inc',
+			'file path' => drupal_get_path('module', 'user'),
+			'menu_name' => 'user-menu',
+			'weight' => 1
+		);
+	}
+
+	module_load_include('inc', 'rol_login');
+	$list = _rol_login_list();
+	foreach($list as $rfid => $data){
+		// Login pages
+		if($data->login){
+			$menu[$data->login] = array(
+				'title' => t('Login'),
+				'title callback' => 'rol_login_login_page_title_callback',
+				'page callback' => 'rol_login_login_page',
+				'page arguments' => array($data),
+				'file' => 'rol_login.pages.inc',
+				'file path' => drupal_get_path('module', 'rol_login'),
+				'access callback' => TRUE,
+				'type' => MENU_NORMAL_ITEM,
+				'menu_name' => 'user-menu',
+				'weight' => 1
+			);
+		}
+
+		// Registration pages
+		if($data->registration){
+			$menu[$data->registration] = array(
+				'title' => t('Register'),
+				'page callback' => 'rol_login_register_page',
+				'page arguments' => array($data),
+				'file' => 'rol_login.pages.inc',
+				'file path' => drupal_get_path('module', 'rol_login'),
+				'access callback' => TRUE,
+				'type' => MENU_NORMAL_ITEM,
+				'menu_name' => 'user-menu',
+				'weight' => 1
+			);
+		}
+
+		// Profile pages
+		if($data->profile){
+			$menu[$data->profile] = array(
+				'title' => 'My account',
+				'access callback' => 'user_is_logged_in',
+				'page callback' => 'rol_login_profile_page',
+				'file' => 'rol_login.pages.inc',
+				'menu_name' => 'user-menu',
+				'weight' => 0
+			);
+			$menu[$data->profile.'/view'] = array(
+				'title' => 'View',
+				'type' => MENU_DEFAULT_LOCAL_TASK,
+				'weight' => 0
+			);
+			$menu[$data->profile.'/edit'] = array(
+				'title' => 'Edit my account',
+				'access callback' => 'rol_login_user_is_logged_in',
+				'page callback' => 'rol_login_profile_edit_page',
+				'file' => 'rol_login.pages.inc',
+				'type' => MENU_LOCAL_TASK,
+				'menu_name' => 'user-menu',
+				'weight' => 1
+			);
+		}
+	}
+
+	module_load_include('inc', 'role_groups');
+	foreach(_rol_login_creation_list() as $rc){
+		$menu[$rc->url] = array(
+			'title' => 'Add user',
+			'access callback' => 'rol_login_user_creation_page_access_callback',
+			'access arguments' => array($rc),
+			'page callback' => 'rol_login_user_creation_page',
+			'page arguments' => array($rc),
+			'file' => 'rol_login.pages.inc',
+			'file path' => drupal_get_path('module', 'rol_login'),
+			'type' => MENU_LOCAL_ACTION
+		);
+	}
+
+
+	return $menu;
+}
+
+function rol_login_login_page_title_callback(){
+	global $user;
+
+	return $user && $user->uid ? t('Profile') : t('Login');
+}
+
+function rol_login_user_creation_page_access_callback($rc){
+	$access = false;
+
+	foreach($rc->roles as $rid => $role_name){
+		if(user_access('create users of role '.$role_name)){
+			$access = true;
+			break;
+		}
+	}
+
+	return $access;
+}
+
+/**
+ * Access callback for [profile]/edit
+ */
+function rol_login_user_is_logged_in(){
+	return user_access('edit own profile') && user_is_logged_in();
+}
+
+/**
+ * Load object rol_login
+ */
+function rol_login_load($rfid){
+	module_load_include('inc', 'rol_login');
+
+	return _rol_login_load($rfid);
+}
+/**
+ * Load object rol_creation
+ */
+function rol_creation_load($rcid){
+	module_load_include('inc', 'rol_login');
+
+	return _rol_creation_load($rcid);
+}
+
+/**
+ * Implementation of hook_menu_alter
+ */
+function rol_login_menu_alter(&$menu){
+	// En mantenimiento no se permite cerrar las url por defecto
+	if(variable_get('rol_login_close_default_urls', false) && !variable_get('maintenance_mode', 0)){
+		$menu['user']['page callback'] = '_user_closed_page';
+		$menu['user']['file'] = 'rol_login.pages.inc';
+		$menu['user']['file path'] = drupal_get_path('module', 'rol_login');
+		$menu['user']['menu_name'] = 'navigation';
+
+		$menu['user/login']['page callback'] = '_user_closed_page';
+		$menu['user/login']['file'] = 'rol_login.pages.inc';
+		$menu['user/login']['file path'] = drupal_get_path('module', 'rol_login');
+		$menu['user/login']['type'] = MENU_NORMAL_ITEM;
+		$menu['user/login']['menu_name'] = 'navigation';
+
+		$menu['user/logout']['page callback'] = '_user_closed_page';
+		$menu['user/logout']['file'] = 'rol_login.pages.inc';
+		$menu['user/logout']['file path'] = drupal_get_path('module', 'rol_login');
+		$menu['user/logout']['type'] = MENU_NORMAL_ITEM;
+		$menu['user/logout']['menu_name'] = 'navigation';
+
+		$menu['user/register']['page callback'] = '_user_closed_page';
+		$menu['user/register']['file'] = 'rol_login.pages.inc';
+		$menu['user/register']['file path'] = drupal_get_path('module', 'rol_login');
+		$menu['user/register']['type'] = MENU_NORMAL_ITEM;
+		$menu['user/register']['menu_name'] = 'navigation';
+
+		$menu['user/password']['page callback'] = '_user_closed_page';
+		$menu['user/password']['file'] = 'rol_login.pages.inc';
+		$menu['user/password']['file path'] = drupal_get_path('module', 'rol_login');
+		$menu['user/password']['type'] = MENU_NORMAL_ITEM;
+		$menu['user/password']['menu_name'] = 'navigation';
+
+		$menu['user/%user']['page callback'] = '_user_view_page';
+		$menu['user/%user']['file'] = 'rol_login.pages.inc';
+		$menu['user/%user']['file path'] = drupal_get_path('module', 'rol_login');
+	}
+}
+
+/**
+ * Implementation of hook_menu_link_alter
+ */
+function rol_login_menu_link_alter(&$link){
+	$list_custom_pages = array(
+		variable_get('rol_login_login_path', 'login'),
+		variable_get('rol_login_password_path', 'password'),
+	);
+
+	module_load_include('inc', 'rol_login');
+	$list = _rol_login_list();
+	foreach($list as $rfid => $data){
+		if($data->login){
+			$list_custom_pages[] = $data->login;
+		}
+		if($data->registration){
+			$list_custom_pages[] = $data->registration;
+		}
+		if($data->profile){
+			$list_custom_pages[] = $data->profile;
+			$list_custom_pages[] = $data->profile.'/view';
+			$list_custom_pages[] = $data->profile.'/edit';
+		}
+	}
+
+	if(variable_get('rol_login_close_default_urls', false) && in_array($link['link_path'], $list_custom_pages)){
+		$link['options']['alter'] = true;
+	}
+}
+
+/**
+ * Implementation of hook_translated_menu_link_alter
+ */
+function rol_login_translated_menu_link_alter(&$link){
+	global $user;
+
+	$list_custom_pages = array(
+		variable_get('rol_login_login_path', 'login'),
+		variable_get('rol_login_password_path', 'password'),
+	);
+
+	module_load_include('inc', 'rol_login');
+	$list = _rol_login_list();
+	foreach($list as $rfid => $data){
+		if($data->login){
+			$list_custom_pages[] = $data->login;
+		}
+		if($data->registration){
+			$list_custom_pages[] = $data->registration;
+		}
+		if($data->profile){
+			$list_custom_pages[] = $data->profile;
+			$list_custom_pages[] = $data->profile.'/view';
+			$list_custom_pages[] = $data->profile.'/edit';
+		}
+	}
+
+	if(variable_get('rol_login_close_default_urls', false) && in_array($link['link_path'], $list_custom_pages) && $user && $user->uid){
+		$link['hidden'] = 1;
+	}
+}
+
+function rol_login_admin_menu_output_alter(&$content){
+	if(variable_get('rol_login_close_default_urls', false) && !variable_get('maintenance_mode', 0)){
+		module_load_include('inc', 'rol_login');
+
+		$rf = _rol_login_get_user_settings();
+		$content['account']['account']['#href'] = $rf->profile;
+		$content['account']['logout']['#href'] = variable_get('rol_login_logout_path', 'logout');
+	}
+}
+
+/**
+ * Implementation of hook_help
+ */
+function rol_login_help($path, $arg){
+	$admin_url = variable_get('rol_login_admin_url', 'admin/config/people/rol-login');
+	$help = '';
+	switch($path){
+		case $admin_url:
+		case $admin_url.'/list':
+			$help = '<p>'.t('This is a list of enabled login pages for each rol in this site. Add a new one using the link below, or modify or delete data from the links in column <i>Actions</i>.').'</p>';
+			break;
+	}
+	return $help;
+}
+
+/**
+ * Implementation of hook_token_info_alter()
+ */
+function rol_login_token_info_alter(&$data){
+	$data['tokens']['user']['custom-one-time-login-url'] = array(
+		'name' => t('Custom one time login url if default pages are closed'),
+		'description' => t('The URL of the one-time login page for the user account.'),
+	);
+	$data['tokens']['site']['custom-login-url'] = array(
+		'name' => t('Custom login url if default pages are closed'),
+		'description' => t('The URL of the login page.'),
+	);
+}
+
+/**
+ * Implementation of hook_tokens()
+ */
+function rol_login_tokens($type, $tokens, $data = array(), $options = array()){
+	$replacements = array();
+	$user = !empty($data['user']) ? $data['user'] : false;
+
+	foreach($tokens as $name => $original){
+		switch($name){
+			case 'custom-one-time-login-url':
+				if($user){
+					$timestamp = REQUEST_TIME;
+					$base = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_password_path', 'password') : 'user';
+					$replacements[$original] = url($base.'/reset/'.$user->uid.'/'.$timestamp.'/'.user_pass_rehash($user->pass, $timestamp, $user->login), array('absolute' => TRUE));
+				}
+				break;
+
+			case 'custom-login-url':
+				$replacements[$original] = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_login_path', 'login') : 'user/login';
+
+				break;
+		}
+	}
+
+	return $replacements;
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function rol_login_form_alter(&$form, &$form_state, $form_id){
+	switch($form_id){
+		case 'user_login':
+			if(variable_get('rol_login_close_default_urls', false)){
+				if(isset($form_state['build_info']['args']) && isset($form_state['build_info']['args'][0]) && isset($form_state['build_info']['args'][0]->rfid)){
+					$rf = $form_state['build_info']['args'][0];
+					$form['rf'] = array(
+						'#type' => 'value',
+						'#value' => $rf
+					);
+				}
+				rol_login_default_validators_login($form['#validate']);
+			}
+			break;
+
+		case 'user_register_form':
+			if(isset($form_state['build_info']['args']) && isset($form_state['build_info']['args'][0]) && isset($form_state['build_info']['args'][0]->rfid)){
+				// Registration form
+				$rf = $form_state['build_info']['args'][0];
+				$form['rf'] = array(
+					'#type' => 'value',
+					'#value' => $rf
+				);
+			}elseif(isset($form_state['build_info']['args']) && isset($form_state['build_info']['args'][0]) && isset($form_state['build_info']['args'][0]->rcid)){
+				// User creation form
+				$rc = $form_state['build_info']['args'][0];
+				$form['rc'] = array(
+					'#type' => 'value',
+					'#value' => $rc
+				);
+
+				$roles = array();
+				foreach($rc->roles as $rid => $role_name){
+					if(user_access('create users of role '.$role_name)){
+						$roles[$rid] = $role_name;
+					}
+				}
+
+				$form['account']['status']['#access'] = false;
+				$form['account']['roles']['#required'] = true;
+				$form['account']['roles']['#access'] = true;
+				$form['account']['roles']['#options'] = $roles;
+				if(count($roles) == 1){
+					$form['account']['roles']['#default_value'] = array_keys($roles);
+					$form['account']['roles']['#access'] = false;
+				}
+				unset($form['account']['roles'][DRUPAL_AUTHENTICATED_RID]);
+			}
+
+			rol_login_default_validators_register($form['#validate']);
+			break;
+
+		case 'user_profile_form':
+			$password_url = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_password_path', 'password') : 'user/password';
+			$request_new = l(t('Request new password'), $password_url, array('attributes' => array('title' => t('Request new password via e-mail.'))));
+
+			$form['account']['current_pass']['#title'] = 'Contraseña actual';
+			$form['account']['current_pass']['#description'] = 'Escriba su contraseña actual para modificar su dirección de correo electrónico o su contraseña de acceso.<br>'.$request_new;
+			$form['account']['pass']['#process'] = array('form_process_password_confirm', 'rol_login_form_process_password_confirm', 'user_form_process_password_confirm');
+
+			$form['#submit'][] = 'rol_login_user_profile_form_submit';
+			break;
+
+		case 'user_pass':
+			foreach($form['#submit'] as &$callback){
+				if($callback == 'user_pass_submit'){
+					$callback = 'rol_login_user_pass_submit';
+				}
+			}
+			break;
+
+		case 'user_pass_reset':
+	}
+}
+
+function rol_login_form_process_password_confirm($element){
+	$element['pass1']['#title'] = 'Contraseña nueva';
+	$element['pass2']['#title'] = 'Confirmar contraseña nueva';
+
+	return $element;
+}
+
+/**
+ * Sets validation functions for login form
+ */
+function rol_login_default_validators_login(&$default){
+	// Para cambiar en los mensajes de error los avisos sobre el nombre de usuario
+	// y los enlaces al formulario de la contraseña hay que sobreescribir la
+	// función user_login_final_validate en user.module:2179
+	foreach($default as &$validator){
+		if($validator == 'user_login_final_validate'){
+			$validator = 'rol_login_final_validate';
+		}
+	}
+}
+
+/**
+ * Final validation of login form
+ * @see user_login_final_validate (user.module:2179)
+ */
+function rol_login_final_validate($form, &$form_state){
+	if(empty($form_state['uid'])){
+		// Always register an IP-based failed login event.
+		flood_register_event('failed_login_attempt_ip', variable_get('user_failed_login_ip_window', 3600));
+		// Register a per-user failed login event.
+		if(isset($form_state['flood_control_user_identifier'])){
+			flood_register_event('failed_login_attempt_user', variable_get('user_failed_login_user_window', 21600), $form_state['flood_control_user_identifier']);
+		}
+
+		if(isset($form_state['flood_control_triggered'])){
+			if($form_state['flood_control_triggered'] == 'user'){
+				form_set_error('name', format_plural(variable_get('user_failed_login_user_limit', 5), 'Sorry, there has been more than one failed login attempt for this account. It is temporarily blocked. Try again later or <a href="@url">request a new password</a>.', 'Sorry, there have been more than @count failed login attempts for this account. It is temporarily blocked. Try again later or <a href="@url">request a new password</a>.', array('@url' => url(variable_get('rol_login_password_path', 'password')))));
+			}else{
+				// We did not find a uid, so the limit is IP-based.
+				form_set_error('name', t('Sorry, too many failed login attempts from your IP address. This IP address is temporarily blocked. Try again later or <a href="@url">request a new password</a>.', array('@url' => url(variable_get('rol_login_password_path', 'password')))));
+			}
+		}else{
+			form_set_error('name', t('Sorry, unrecognized username or password. <a href="@password">Have you forgotten your password?</a>', array('@password' => url(variable_get('rol_login_password_path', 'password'), array('query' => array('name' => $form_state['values']['name']))))));
+			watchdog('user', 'Login attempt failed for %user.', array('%user' => $form_state['values']['name']));
+		}
+	}elseif(isset($form_state['flood_control_user_identifier'])){
+		// Clear past failures for this user so as not to block a user who might
+		// log in and out more than once in an hour.
+		flood_clear_event('failed_login_attempt_user', $form_state['flood_control_user_identifier']);
+	}
+
+	// Check allowed role
+	if($form_state['uid'] > 1){
+		module_load_include('inc', 'rol_login');
+
+		$user = user_load($form_state['uid']);
+		$rf = $form_state['values']['rf'];
+		$allowed = false;
+		foreach($user->roles as $rid => $role_name){
+			if(isset($rf->roles[$rid])){
+				$allowed = true;
+				break;
+			}
+		}
+		if(!$allowed){
+			form_set_error('name', t('Sorry, unrecognized username or password. <a href="@password">Have you forgotten your password?</a>', array('@password' => url(variable_get('rol_login_password_path', 'password'), array('query' => array('name' => $form_state['values']['name']))))));
+			watchdog('user', 'Login attempt failed for %user (UID !uid): user role is not allowed to log in from this form', array('%user' => $form_state['values']['name'], '!uid' => check_plain($form_state['uid'])));
+		}
+	}
+}
+
+
+/**
+ * Sets validation functions for register form
+ */
+function rol_login_default_validators_register(&$default){
+	// Para cambiar en los mensajes de error los avisos sobre el nombre de usuario
+	// y los enlaces al formulario de la contraseña hay que sobreescribir la
+	// función user_account_form_validate en user.module:1219
+	foreach($default as &$validator){
+		if($validator == 'user_account_form_validate'){
+			$validator = 'rol_login_account_form_validate';
+		}
+	}
+}
+
+/**
+ * Final validation for register form
+ * @see user_account_form_validate (user.module:1219)
+ */
+function rol_login_account_form_validate($form, &$form_state){
+	$rf = isset($form_state['values']['rf']) ? $form_state['values']['rf'] : false;
+	$rc = isset($form_state['values']['rc']) ? $form_state['values']['rc'] : false;
+
+	if($form['#user_category'] == 'account' || $form['#user_category'] == 'register'){
+		$account = $form['#user'];
+
+		// Validate new or changing username.
+		if(isset($form_state['values']['name'])){
+			if($error = user_validate_name($form_state['values']['name'])){
+				form_set_error('name', $error);
+			}elseif((bool) db_select('users')->fields('users', array('uid'))->condition('uid', $account->uid, '<>')->condition('name', db_like($form_state['values']['name']), 'LIKE')->range(0, 1)->execute()->fetchField()){
+				form_set_error('name', t('The name %name is already taken.', array('%name' => $form_state['values']['name'])));
+			}
+		}
+
+		// Trim whitespace from mail, to prevent confusing 'e-mail not valid'
+		// warnings often caused by cutting and pasting.
+		$mail = trim($form_state['values']['mail']);
+		form_set_value($form['account']['mail'], $mail, $form_state);
+
+		// Validate the e-mail address, and check if it is taken by an existing user.
+		if($error = user_validate_mail($form_state['values']['mail'])){
+			form_set_error('mail', $error);
+		}elseif((bool) db_select('users')->fields('users', array('uid'))->condition('uid', $account->uid, '<>')->condition('mail', db_like($form_state['values']['mail']), 'LIKE')->range(0, 1)->execute()->fetchField()){
+			// Format error message dependent on whether the user is logged in or not.
+			if($GLOBALS['user']->uid){
+				form_set_error('mail', t('The e-mail address %email is already taken.', array('%email' => $form_state['values']['mail'])));
+			}else{
+				form_set_error('mail', t('The e-mail address %email is already registered. <a href="@password">Have you forgotten your password?</a>', array('%email' => $form_state['values']['mail'], '@password' => url(variable_get('rol_login_password_path', 'password')))));
+			}
+		}
+
+		// Make sure the signature isn't longer than the size of the database field.
+		// Signatures are disabled by default, so make sure it exists first.
+		if(isset($form_state['values']['signature'])){
+			// Move text format for user signature into 'signature_format'.
+			$form_state['values']['signature_format'] = $form_state['values']['signature']['format'];
+			// Move text value for user signature into 'signature'.
+			$form_state['values']['signature'] = $form_state['values']['signature']['value'];
+
+			$user_schema = drupal_get_schema('users');
+			if(drupal_strlen($form_state['values']['signature']) > $user_schema['fields']['signature']['length']){
+				form_set_error('signature', t('The signature is too long: it must be %max characters or less.', array('%max' => $user_schema['fields']['signature']['length'])));
+			}
+		}
+	}
+}
+
+/**
+ * Implementation of hook_user_presave()
+ */
+function rol_login_user_presave(&$edit, $account, $category){
+	if(isset($edit['rf'])){
+		$rf = $edit['rf'];
+		foreach($rf->roles as $rid => $name){
+			$edit['roles'][$rid] = $name;
+		}
+	}
+
+	if($account->is_new){
+		$edit['origin'] = variable_get('rol_login_regiter_origin', '');
+	}
+}
+
+/**
+ * Submit fuction of user_profile form
+ */
+function rol_login_user_profile_form_submit($form, &$form_state){
+	$form_state['redirect'] = 'user/'.$form['#user']->uid;
+}
+
+/**
+ * Submit fuction of user_pass form
+ */
+function rol_login_user_pass_submit($form, &$form_state){
+	module_load_include('inc', 'rol_login');
+
+	$account = $form_state['values']['account'];
+	$rf = _rol_login_get_user_settings($account);
+
+	if($account->uid == 1 || ($rf && $rf->login && user_access('edit own profile', $account))){
+		// Este bloque viene de la ejecución normal del submit del formulario de recuperación de contraseña
+		// @see user_pass_submit
+		// @link /modules/user/user.pages.inc
+			global $language;
+			// Mail one time login URL and instructions using current language.
+			$mail = _user_mail_notify('password_reset', $account, $language);
+			if(!empty($mail)){
+				watchdog('user', 'Password reset instructions mailed to %name at %email.', array('%name' => $account->name, '%email' => $account->mail));
+				drupal_set_message(t('Further instructions have been sent to your e-mail address.'));
+			}
+
+		// Se fuerza la redirección al login o al profile del usuario, si tenía la sesión iniciada
+		global $user;
+		$form_state['redirect'] = $user->uid ? $rf->profile : $rf->login;
+	}else{
+		// Si el usuario no tiene permiso para editar su cuenta, se redirige a una página de información
+		$_SESSION['password_recovery_info'] = $account->roles;
+		$form_state['redirect'] = 'password-recovery-info';
+	}
+}
+
+/**
+ * Implementation of hook_features_api()
+ */
+function rol_login_features_api(){
+	return array(
+		'rol_login_settings' => array(
+			'name' => t('Custom url per role'),
+			'default_hook' => 'rol_login_settings_defaults',
+			'default_file' => FEATURES_DEFAULTS_INCLUDED,
+			'feature_source' => TRUE,
+			'file' => drupal_get_path('module', 'rol_login') .'/features/rol_login_settings.features.inc',
+		),
+		'rol_creation_settings' => array(
+			'name' => t('User creation url'),
+			'default_hook' => 'rol_login_settings_defaults',
+			'default_file' => FEATURES_DEFAULTS_INCLUDED,
+			'feature_source' => TRUE,
+			'file' => drupal_get_path('module', 'rol_login') .'/features/rol_creation_settings.features.inc',
+		)
+	);
+}

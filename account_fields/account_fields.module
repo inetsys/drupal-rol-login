@@ -1,0 +1,127 @@
+<?php
+
+function account_fields_init(){
+	global $user;
+
+	if($user && $user->uid){
+		module_load_include('inc', 'account_fields');
+		if(!_check_user_required_fields($user) && user_access('edit own profile')){
+			// Si faltan campos obligatorios se redirige a la página de edición del profile
+			// Se evita la redirección si la página es la del formulario de edición o alguna de las páginas del sistema de gestión de usuarios
+			$edit_profile = variable_get('rol_login_profile_path', 'user/'.$user->uid).'/edit';
+			$password_arg = explode('/', variable_get('rol_login_password_path', 'password').'/reset');
+			$logout_arg = explode('/', variable_get('rol_login_logout_path', 'user/logout'));
+
+			if(arg() != explode('/', $edit_profile)
+			&& arg() != $logout_arg
+			&& array_intersect(arg(), $password_arg) != $password_arg
+			){
+				drupal_set_message('Faltan campos obligatorios por definir en su cuenta de usuario', 'warning');
+				drupal_goto($edit_profile);
+			}
+		}
+	}
+}
+
+function account_fields_permission(){
+	return array(
+		'administer account configuration per role' => array(
+			'title' => t('Administer account configuration per role')
+		)
+	);
+}
+
+function account_fields_menu(){
+	return array(
+		'admin/config/people/accounts/roles' => array(
+			'title' => 'Manage roles',
+			'access arguments' => array('administer account configuration per role'),
+			'page callback' => 'drupal_get_form',
+			'page arguments' => array('account_fields_admin_page'),
+			'file' => 'account_fields.admin.inc',
+			'type' => MENU_LOCAL_TASK,
+			'weight' => 10
+		)
+	);
+}
+
+function account_fields_theme(){
+	return array(
+		'account_fields_admin_page' => array(
+			'render element' => 'form',
+			'file' => 'account_fields.admin.inc',
+		),
+	);
+}
+
+function account_fields_form_alter(&$form, &$form_state, $form_id){
+	switch($form_id){
+		case 'user_register_form':
+			$roles = array();
+
+			if(isset($form['rf'])){
+				$roles = $form['rf']['#value']->roles;
+			}elseif(isset($form['rc'])){
+				$roles = $form['rc']['#value']->roles;
+			}
+			if($roles){
+				module_load_include('inc', 'account_fields');
+				_account_fields_filter_fields($form, $roles);
+			}
+			break;
+
+		case 'user_profile_form':
+			$user = user_load($form['#user']->uid);
+			$roles = $user->roles;
+
+			module_load_include('inc', 'account_fields');
+			_account_fields_filter_fields($form, $roles);
+
+			break;
+	}
+}
+
+function account_fields_field_attach_view_alter(&$output, $context){
+	if($context['view_mode'] != 'full' || $context['entity_type'] != 'user'){
+		return;
+	}
+
+	module_load_include('inc', 'account_fields');
+
+	$roles = $context['entity']->roles;
+
+	$instances = _field_invoke_get_instances('user', 'user', array('default' => TRUE, 'deleted' => FALSE));
+	foreach ($instances as $field_name => $instance) {
+		// Set content for fields they are empty.
+		if(empty($context['entity']->{$field_name})){
+			$display = field_get_display($instance, 'full', $context['entity']);
+			// Do not add field that is hidden in current display.
+			if ($display['type'] == 'hidden') {
+				continue;
+			}
+			// Load field settings.
+			$field = field_info_field($field_name);
+			// Set output for field.
+			$output[$field_name] = array(
+				'#theme' => 'field',
+				'#title' => $instance['label'],
+				'#label_display' => $display['label'],
+				'#field_type' => $field['type'],
+				'#field_name' => $field_name,
+				'#access' => _account_fields_field_access($instance, $roles),
+				'#bundle' => 'user',
+				'#object' => $context['entity'],
+				'#items' => array(
+					0 => array(
+						'value' => '-'
+					)
+				),
+				'#entity_type' => 'node',
+				'#weight' => $display['weight'],
+				0 => array(
+					'#markup' => '-'
+				),
+			);
+		}
+	}
+}

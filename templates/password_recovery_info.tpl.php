@@ -1,0 +1,2 @@
+<p><?php print t('Your password cannot be changed because you do not have permission to change your account data, including your access data.'); ?></p>
+<p><?php print t('Please contact the site administrator in %site_mail.', array('%site_mail' => variable_get('site_mail', ini_get('sendmail_from')))); ?></p>

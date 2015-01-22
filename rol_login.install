@@ -1,0 +1,122 @@
+<?php
+
+function rol_login_schema(){
+	return array(
+		'rol_login' => array(
+			'description' => 'Role forms',
+			'fields' => array(
+				'rfid' => array(
+					'type' => 'serial',
+					'unsigned' => true,
+					'not null' => true,
+					'description' => 'Primary Key: Unique ID.',
+				),
+				'login' => array(
+					'type' => 'varchar',
+					'length' => 50,
+					'not null' => true,
+					'default' => 'user/register',
+					'description' => 'Alias for login page',
+				),
+				'registration' => array(
+					'type' => 'varchar',
+					'length' => 50,
+					'not null' => true,
+					'default' => 'user/register',
+					'description' => 'Alias for registration page',
+				),
+				'profile' => array(
+					'type' => 'varchar',
+					'length' => 50,
+					'not null' => true,
+					'default' => 'user/register',
+					'description' => 'Alias for profile page',
+				),
+				'weight' => array(
+					'type' => 'int',
+					'not null' => true,
+					'default' => 0,
+					'description' => "The rule's weight.",
+				),
+			),
+			'primary key' => array('rfid'),
+			'indexes' => array(
+				'list' => array('weight'),
+			),
+		),
+		'rol_login_roles' => array(
+			'description' => 'Roles - custom forms relationship',
+			'fields' => array(
+				'rfid' => array(
+					'type' => 'int',
+					'not null' => true,
+					'description' => 'Role forms id',
+				),
+				'rid' => array(
+					'type' => 'int',
+					'not null' => true,
+					'description' => 'Role id',
+				)
+			),
+			'unique keys' => array(
+				'rfid_rid' => array(
+					'rfid',
+					'rid'
+				)
+			),
+			'indexes' => array(
+				'list' => array('rfid'),
+			),
+		),
+		'rol_login_creation' => array(
+			'description' => 'User creation pages',
+			'fields' => array(
+				'rcid' => array(
+					'type' => 'serial',
+					'unsigned' => true,
+					'not null' => true,
+					'description' => 'Primary Key: Unique ID.',
+				),
+				'url' => array(
+					'type' => 'varchar',
+					'length' => 50,
+					'not null' => true,
+				),
+				'weight' => array(
+					'type' => 'int',
+					'not null' => true,
+					'default' => 0,
+					'description' => "The rule's weight.",
+				),
+			),
+			'primary key' => array('rcid'),
+			'indexes' => array(
+				'list' => array('weight'),
+			),
+		),
+		'rol_login_creation_roles' => array(
+			'description' => 'User creation - custom forms relationship',
+			'fields' => array(
+				'rcid' => array(
+					'type' => 'int',
+					'not null' => true,
+					'description' => 'Creation forms id',
+				),
+				'rid' => array(
+					'type' => 'int',
+					'not null' => true,
+					'description' => 'Role id',
+				)
+			),
+			'unique keys' => array(
+				'rcid_rid' => array(
+					'rcid',
+					'rid'
+				)
+			),
+			'indexes' => array(
+				'list' => array('rcid'),
+			),
+		)
+	);
+}
