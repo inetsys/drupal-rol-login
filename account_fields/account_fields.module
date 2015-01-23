@@ -5,10 +5,15 @@ function account_fields_init(){
 
 	if($user && $user->uid){
 		module_load_include('inc', 'account_fields');
-		if(!_check_user_required_fields($user) && user_access('edit own profile')){
+		module_load_include('inc', 'rol_login');
+
+		$rf = _rol_login_get_user_settings($user);
+		$profile_url = $rf && $rf->profile ? $rf->profile : '';
+
+		if(!_check_user_required_fields($user) && user_access('edit own profile') && $profile_url){
 			// Si faltan campos obligatorios se redirige a la página de edición del profile
 			// Se evita la redirección si la página es la del formulario de edición o alguna de las páginas del sistema de gestión de usuarios
-			$edit_profile = variable_get('rol_login_profile_path', 'user/'.$user->uid).'/edit';
+			$edit_profile = $profile_url.'/edit';
 			$password_arg = explode('/', variable_get('rol_login_password_path', 'password').'/reset');
 			$logout_arg = explode('/', variable_get('rol_login_logout_path', 'user/logout'));
 
