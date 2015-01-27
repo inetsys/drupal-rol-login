@@ -27,5 +27,5 @@ function rol_creation_settings_save($rol_creation_settings){
 	}
 
 	module_load_include('inc', 'rol_login');
-	_rol_login_save($rol_creation_settings);
+	_rol_login_creation_save($rol_creation_settings);
 }

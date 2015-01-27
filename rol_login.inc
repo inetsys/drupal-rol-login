@@ -220,6 +220,16 @@ function _rol_login_creation_list($reset = false){
 	return $list;
 }
 
+function _rol_login_creation_save($rc){
+	if(isset($rc->rcid)){
+		$ret = _rol_login_creation_update($rc);
+	}else{
+		$ret = _rol_login_creation_add($rc);
+	}
+
+	return $ret;
+}
+
 function _rol_login_creation_add($rc){
 	$roles = user_roles(true);
 

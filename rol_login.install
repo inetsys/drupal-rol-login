@@ -15,7 +15,7 @@ function rol_login_schema(){
 					'type' => 'varchar',
 					'length' => 50,
 					'not null' => true,
-					'default' => 'user/register',
+					'default' => 'user/login',
 					'description' => 'Alias for login page',
 				),
 				'registration' => array(
@@ -29,7 +29,7 @@ function rol_login_schema(){
 					'type' => 'varchar',
 					'length' => 50,
 					'not null' => true,
-					'default' => 'user/register',
+					'default' => 'user',
 					'description' => 'Alias for profile page',
 				),
 				'weight' => array(
