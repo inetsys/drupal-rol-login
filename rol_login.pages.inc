@@ -10,17 +10,15 @@ function _user_closed_page(){
 // Custom user_view_page function
 
 function _user_view_page($account){
-	if($account && $account->uid){
-		global $user;
-		if($user->uid == $account->uid){
-			module_load_include('inc', 'rol_login');
-			$rf = _rol_login_get_user_settings($user);
-			drupal_goto($rf->profile);
-		}else{
-			return user_view($account);
-		}
+	global $user;
+
+	// Si es la propia página de usuario, se redirige al profile
+	if($account && $account->uid && $user->uid == $account->uid){
+		module_load_include('inc', 'rol_login');
+		$rf = _rol_login_get_user_settings($user);
+		drupal_goto($rf->profile);
 	}else{
-		return MENU_NOT_FOUND;
+		return user_view($account);
 	}
 }
 
@@ -94,7 +92,7 @@ function rol_login_register_page($rf){
 
 // User creation page
 function rol_login_user_creation_page($rc){
-	return drupal_get_form('user_register_form', $rc);
+	return drupal_get_form('rol_login_user_creation_form', $rc);
 }
 
 // Custom reset password callback
@@ -102,12 +100,16 @@ function rol_login_user_creation_page($rc){
 function rol_login_pass_reset($form, &$form_state, $uid, $timestamp, $hashed_pass, $action = false) {
 	global $user;
 
+	module_load_include('inc', 'rol_login');
+
 	// When processing the one-time login link, we have to make sure that a user
 	// isn't already logged in.
 	if ($user->uid) {
 		// The existing user is already logged in.
 		if ($user->uid == $uid) {
-			drupal_set_message(t('You are logged in as %user. <a href="!user_edit">Change your password.</a>', array('%user' => $user->name, '!user_edit' => url(variable_get('rol_login_profile_path', 'profile').'/edit'))));
+			$rf = _rol_login_get_user_settings($user);
+			$edit_profile_path = $rf->profile.'/edit';
+			drupal_set_message(t('You are logged in as %user. <a href="!user_edit">Change your password.</a>', array('%user' => $user->name, '!user_edit' => url($edit_profile_path))));
 		}
 		// A different user is already logged in on the computer.
 		else {
@@ -135,7 +137,7 @@ function rol_login_pass_reset($form, &$form_state, $uid, $timestamp, $hashed_pas
 				drupal_set_message(t('You have tried to use a one-time login link that has expired. Please request a new one using the form below.'));
 				drupal_goto(variable_get('rol_login_password_path', 'password'));
 			}
-			elseif ($account->uid && $timestamp >= $account->login && $timestamp <= $current && $hashed_pass == user_pass_rehash($account->pass, $timestamp, $account->login)) {
+			elseif ($account->uid && $timestamp >= $account->login && $timestamp <= $current && $hashed_pass == user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid)) {
 				// First stage is a confirmation form, then login
 				if ($action == 'login') {
 					// Set the new user.
@@ -148,7 +150,11 @@ function rol_login_pass_reset($form, &$form_state, $uid, $timestamp, $hashed_pas
 					// Let the user's password be changed without the current password check.
 					$token = drupal_random_key();
 					$_SESSION['pass_reset_' . $user->uid] = $token;
-					drupal_goto(variable_get('rol_login_profile_path', 'profile').'/edit', array('query' => array('pass-reset-token' => $token)));
+
+					$rf = _rol_login_get_user_settings($user);
+					$edit_profile_path = $rf->profile.'/edit';
+
+					drupal_goto($edit_profile_path, array('query' => array('pass-reset-token' => $token)));
 				}
 				else {
 					$form['message'] = array('#markup' => t('<p>This is a one-time login for %user_name and will expire on %expiration_date.</p><p>Click on this button to log in to the site and change your password.</p>', array('%user_name' => $account->name, '%expiration_date' => format_date($timestamp + $timeout))));

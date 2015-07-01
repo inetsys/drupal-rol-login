@@ -5,11 +5,14 @@
  */
 function rol_login_permission(){
 	$permission = array(
-		'view all user origin' => array(
-			'title' => t('View all user origin')
+		'administer rol login settings' => array(
+			'title' => t('Administer rol login settings')
 		),
 		'edit own profile' => array(
 			'title' => t('Edit own profile')
+		),
+		'add any user' => array(
+			'title' => t('Add any user')
 		),
 	);
 
@@ -57,7 +60,7 @@ function rol_login_menu(){
 		'title' => 'User urls settings',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_settings'),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 	);
 	// Settings
@@ -69,7 +72,7 @@ function rol_login_menu(){
 	// Role configuration
 	$menu[$admin_url.'/roles'] = array(
 		'title' => 'Role settings',
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'page callback' => 'rol_login_admin_roles_list',
 		'file' => 'rol_login.admin.inc',
 		'type' => MENU_LOCAL_TASK,
@@ -79,7 +82,7 @@ function rol_login_menu(){
 		'title' => 'Add role settings',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_admin_roles_add_form'),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 		'type' => MENU_LOCAL_ACTION,
 	);
@@ -87,7 +90,7 @@ function rol_login_menu(){
 		'title' => 'Rol login',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_admin_roles_edit_form', $admin_url_parts + 2),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 	);
 	$menu[$admin_url.'/roles/%rol_login/edit'] = array(
@@ -98,14 +101,14 @@ function rol_login_menu(){
 		'title' => 'Delete rol login',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_admin_roles_delete_form', $admin_url_parts + 2),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 		'type' => MENU_LOCAL_TASK,
 	);
 	// User creation
 	$menu[$admin_url.'/user-creation'] = array(
 		'title' => 'User creation settings',
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'page callback' => 'rol_login_admin_creation_list',
 		'file' => 'rol_login.admin.inc',
 		'type' => MENU_LOCAL_TASK,
@@ -115,7 +118,7 @@ function rol_login_menu(){
 		'title' => 'Add creation settings',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_admin_creation_add_form'),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 		'type' => MENU_LOCAL_ACTION,
 	);
@@ -123,7 +126,7 @@ function rol_login_menu(){
 		'title' => 'User creation settings',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_admin_creation_edit_form', $admin_url_parts + 2),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 	);
 	$menu[$admin_url.'/user-creation/%rol_creation/edit'] = array(
@@ -134,7 +137,7 @@ function rol_login_menu(){
 		'title' => 'Delete user creation settings',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('rol_login_admin_creation_delete_form', $admin_url_parts + 2),
-		'access arguments' => array('administer users'),
+		'access arguments' => array('administer rol login settings'),
 		'file' => 'rol_login.admin.inc',
 		'type' => MENU_LOCAL_TASK,
 	);
@@ -339,10 +342,61 @@ function rol_login_menu_alter(&$menu){
 		$menu['user/password']['type'] = MENU_NORMAL_ITEM;
 		$menu['user/password']['menu_name'] = 'navigation';
 
+		$menu['user/%user']['access callback'] = 'rol_login_user_view_access';
 		$menu['user/%user']['page callback'] = '_user_view_page';
 		$menu['user/%user']['file'] = 'rol_login.pages.inc';
 		$menu['user/%user']['file path'] = drupal_get_path('module', 'rol_login');
+
+		$menu['user/%user/edit']['access callback'] = 'rol_login_user_edit_access';
+
+		$menu['admin/people/create']['access arguments'] = array('add any user');
 	}
+
+}
+
+/**
+ * Access callback for user/%
+ */
+function rol_login_user_view_access($account){
+	global $user;
+
+	if($account && $account->uid && (user_access('administer_users') || $user->uid == $account->uid)){
+		return true;
+	}
+
+	if($account->uid == 1){
+		return false;
+	}
+
+	if(user_access('access user profiles')){
+		// Si tiene permiso para ver usuarios del rol del usuario actual >> 200
+		foreach($account->roles as $role){
+			if(user_access('view users of role '.$role)){
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Access callback for user/%/edit
+ */
+function rol_login_user_edit_access($account){
+	global $user;
+
+	if($account->uid > 0 && (($user->uid == $account->uid && user_access('edit own profile')) || user_access('administer users'))){
+		return true;
+	}
+
+	foreach($account->roles as $role){
+		if(user_access('edit users of role '.$role)){
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**
@@ -459,13 +513,12 @@ function rol_login_tokens($type, $tokens, $data = array(), $options = array()){
 				if($user){
 					$timestamp = REQUEST_TIME;
 					$base = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_password_path', 'password') : 'user';
-					$replacements[$original] = url($base.'/reset/'.$user->uid.'/'.$timestamp.'/'.user_pass_rehash($user->pass, $timestamp, $user->login), array('absolute' => TRUE));
+					$replacements[$original] = url($base.'/reset/'.$user->uid.'/'.$timestamp.'/'.user_pass_rehash($user->pass, $timestamp, $user->login, $user->uid), array('absolute' => TRUE));
 				}
 				break;
 
 			case 'custom-login-url':
 				$replacements[$original] = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_login_path', 'login') : 'user/login';
-
 				break;
 		}
 	}
@@ -515,6 +568,8 @@ function rol_login_form_alter(&$form, &$form_state, $form_id){
 				}
 
 				$form['account']['status']['#access'] = false;
+				$form['account']['status']['#default_value'] = true;
+
 				$form['account']['roles']['#required'] = true;
 				$form['account']['roles']['#access'] = true;
 				$form['account']['roles']['#options'] = $roles;
@@ -549,6 +604,79 @@ function rol_login_form_alter(&$form, &$form_state, $form_id){
 
 		case 'user_pass_reset':
 	}
+}
+
+function rol_login_user_creation_form($form, &$form_state, $rc){
+	$form['rc'] = array(
+		'#type' => 'value',
+		'#value' => $rc
+	);
+
+	$roles = array();
+	foreach($rc->roles as $rid => $role_name){
+		if(user_access('create users of role '.$role_name)){
+			$roles[$rid] = $role_name;
+		}
+	}
+
+	// user_register_form
+
+	$form['administer_users'] = array(
+		'#type' => 'value',
+		'#value' => true,
+	);
+
+	$form['#user'] = drupal_anonymous_user();
+	$form['#user_category'] = 'register';
+
+	$form['#attached']['library'][] = array('system', 'jquery.cookie');
+	$form['#attributes']['class'][] = 'user-info-from-cookie';
+
+	// Start with the default user account fields.
+	user_account_form($form, $form_state);
+
+	// Attach field widgets, and hide the ones where the 'user_register_form'
+	// setting is not on.
+	$langcode = entity_language('user', $form['#user']);
+	field_attach_form('user', $form['#user'], $form, $form_state, $langcode);
+	foreach (field_info_instances('user', 'user') as $field_name => $instance) {
+		if (empty($instance['settings']['user_register_form'])) {
+			$form[$field_name]['#access'] = FALSE;
+		}
+	}
+
+	$form_state['redirect'] = $_GET['q'];
+
+	$form['actions'] = array('#type' => 'actions');
+	$form['actions']['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Create new account'),
+	);
+
+	$form['#validate'][] = 'user_register_validate';
+	// Add the final user registration form submit handler.
+	$form['#submit'][] = 'user_register_submit';
+
+	// Alters
+
+	rol_login_default_validators_register($form['#validate']);
+
+	$form['account']['status']['#access'] = false;
+	$form['account']['status']['#default_value'] = true;
+
+	$form['account']['notify']['#access'] = false;
+	$form['account']['notify']['#default_value'] = true;
+
+	$form['account']['roles']['#required'] = true;
+	$form['account']['roles']['#access'] = true;
+	$form['account']['roles']['#options'] = $roles;
+	if(count($roles) == 1){
+		$form['account']['roles']['#default_value'] = array_keys($roles);
+		$form['account']['roles']['#access'] = false;
+	}
+	unset($form['account']['roles'][DRUPAL_AUTHENTICATED_RID]);
+
+	return $form;
 }
 
 function rol_login_form_process_password_confirm($element){
@@ -764,4 +892,11 @@ function rol_login_features_api(){
 			'file' => drupal_get_path('module', 'rol_login') .'/features/rol_creation_settings.features.inc',
 		)
 	);
+}
+
+/**
+ * Implementation of hook_views_data_alter()
+ */
+function rol_login_views_data_alter(&$data) {
+	$data['users']['edit_node']['field']['handler'] = 'rol_login_handler_field_users_edit_node';
 }
