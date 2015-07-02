@@ -886,7 +886,7 @@ function rol_login_features_api(){
 		),
 		'rol_creation_settings' => array(
 			'name' => t('User creation url'),
-			'default_hook' => 'rol_login_settings_defaults',
+			'default_hook' => 'rol_creation_settings_defaults',
 			'default_file' => FEATURES_DEFAULTS_INCLUDED,
 			'feature_source' => TRUE,
 			'file' => drupal_get_path('module', 'rol_login') .'/features/rol_creation_settings.features.inc',
