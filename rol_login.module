@@ -192,7 +192,6 @@ function rol_login_menu(){
 		if($data->login){
 			$menu[$data->login] = array(
 				'title' => t('Login'),
-				'title callback' => 'rol_login_login_page_title_callback',
 				'page callback' => 'rol_login_login_page',
 				'page arguments' => array($data),
 				'file' => 'rol_login.pages.inc',
@@ -262,12 +261,6 @@ function rol_login_menu(){
 
 
 	return $menu;
-}
-
-function rol_login_login_page_title_callback(){
-	global $user;
-
-	return $user && $user->uid ? t('Profile') : t('Login');
 }
 
 function rol_login_user_creation_page_access_callback($rc){
