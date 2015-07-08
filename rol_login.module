@@ -449,11 +449,6 @@ function rol_login_translated_menu_link_alter(&$link){
 		if($data->registration){
 			$list_custom_pages[] = $data->registration;
 		}
-		if($data->profile){
-			$list_custom_pages[] = $data->profile;
-			$list_custom_pages[] = $data->profile.'/view';
-			$list_custom_pages[] = $data->profile.'/edit';
-		}
 	}
 
 	if(variable_get('rol_login_close_default_urls', false) && in_array($link['link_path'], $list_custom_pages) && $user && $user->uid){
