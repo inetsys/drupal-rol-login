@@ -506,7 +506,8 @@ function rol_login_tokens($type, $tokens, $data = array(), $options = array()){
 				break;
 
 			case 'custom-login-url':
-				$replacements[$original] = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_login_path', 'login') : 'user/login';
+				$login = variable_get('rol_login_close_default_urls', false) ? variable_get('rol_login_login_path', 'login') : 'user/login';
+				$replacements[$original] = url($login, array('absolute' => true));
 				break;
 		}
 	}
