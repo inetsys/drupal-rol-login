@@ -3,5 +3,5 @@ description = Custom management of user login and registration configured by rol
 package = User management
 core = 7.x
 configure = admin/config/people/rol-login
-version = 7.x-1.4
+version = 7.x-1.5
 files[] = views/rol_login_handler_field_users_edit_node.inc
