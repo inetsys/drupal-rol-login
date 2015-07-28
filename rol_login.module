@@ -614,6 +614,10 @@ function rol_login_user_creation_form($form, &$form_state, $rc){
 		'#type' => 'value',
 		'#value' => true,
 	);
+	$form['pass'] = array(
+		'#type' => 'value',
+		'#value' => user_password()
+	);
 
 	$form['#user'] = drupal_anonymous_user();
 	$form['#user_category'] = 'register';
