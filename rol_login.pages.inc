@@ -4,7 +4,8 @@
 
 function _user_closed_page(){
 	drupal_set_breadcrumb(array());
-	drupal_not_found();
+
+	return MENU_NOT_FOUND;
 }
 
 // Custom user_view_page function
@@ -56,7 +57,7 @@ function rol_login_profile_page(){
 		);
 	}else{
 		drupal_set_breadcrumb(array());
-		drupal_not_found();
+		return MENU_NOT_FOUND;
 	}
 }
 
@@ -69,7 +70,7 @@ function rol_login_profile_edit_page(){
 		return menu_execute_active_handler('user/'.$user->uid.'/edit', FALSE);
 	}else{
 		drupal_set_breadcrumb(array());
-		drupal_not_found();
+		return MENU_NOT_FOUND;
 	}
 }
 
@@ -185,3 +186,4 @@ function rol_login_password_recovery_info_page(){
 
 	return theme('password_recovery_info', array('roles' => $roles));
 }
+
